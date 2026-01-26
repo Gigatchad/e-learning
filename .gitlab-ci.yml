@@ -1,0 +1,41 @@
+image: node:18
+
+stages:
+  - test
+  - build
+
+# Cache modules in between jobs
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - node_modules/
+    - frontend/node_modules/
+
+# Backend Tests
+backend_tests:
+  stage: test
+  script:
+    - echo "Installing backend dependencies..."
+    - npm install
+    - echo "Running backend tests..."
+    - npm test
+  variables:
+    # Set environment variables for testing
+    NODE_ENV: "test"
+    # Mock secrets since we are using mocks in tests anyway, but these suppress startup warnings
+    JWT_SECRET: "ci_jwt_secret"
+    JWT_REFRESH_SECRET: "ci_refresh_secret"
+
+# Frontend Build Test (Ensures frontend compiles)
+frontend_build:
+  stage: build
+  script:
+    - echo "Installing frontend dependencies..."
+    - cd frontend
+    - npm install
+    - echo "Building frontend..."
+    - npm run build
+  artifacts:
+    paths:
+      - frontend/dist
+    expire_in: 1 hour
