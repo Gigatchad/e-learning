@@ -3,8 +3,8 @@ services:
     name: elearning-backend
     env: docker
     plan: free
-    region: frankfurt # You can change this (e.g., oregon, ohio, singapore)
-    branch: main # or master
+    region: frankfurt
+    branch: main
     envVars:
       - key: NODE_ENV
         value: production
@@ -13,7 +13,7 @@ services:
       - key: JWT_REFRESH_SECRET
         generateValue: true
       - key: CORS_ORIGIN
-        value: https://YOUR_APP_NAME.onrender.com
+        value: "*" # Set this to your frontend URL later for better security
       - key: DB_HOST
         sync: false
       - key: DB_PORT
@@ -24,10 +24,3 @@ services:
         sync: false
       - key: DB_NAME
         value: elearning_db
-
-# If you want to use Render's Managed MySQL (Paid), uncomment the lines below:
-# databases:
-#   - name: elearning_db
-#     databaseName: elearning_db
-#     user: elearning_user
-#     plan: starter
