@@ -4,10 +4,22 @@
 
 const { Pool } = require('pg');
 
+// In production on Render, we want to rely ONLY on the environment variables provided by the platform
+const connectionString = process.env.DATABASE_URL;
+
+if (process.env.NODE_ENV === 'production' && connectionString) {
+    try {
+        const url = new URL(connectionString);
+        console.log(`📡 Platform Provided Database Host: ${url.hostname}`);
+    } catch (e) {
+        console.log('📡 Using DATABASE_URL from environment');
+    }
+}
+
 const dbConfig = {
-    connectionString: process.env.DATABASE_URL,
+    connectionString: connectionString,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-    max: 20,
+    max: 10,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
 };
@@ -77,7 +89,7 @@ const executeShim = async (executor, sql, params = []) => {
 
 pool.execute = (sql, params) => executeShim(pool, sql, params);
 
-const testConnection = async (retries = 12) => {
+const testConnection = async (retries = 15) => {
     const totalRetries = retries;
     while (retries > 0) {
         try {
@@ -87,9 +99,9 @@ const testConnection = async (retries = 12) => {
             return true;
         } catch (error) {
             retries -= 1;
-            console.log(`⏳ [Attempt ${totalRetries - retries}/${totalRetries}] Waiting for database network... (${error.message})`);
+            console.log(`⏳ [Attempt ${totalRetries - retries}/${totalRetries}] Connecting to database... (${error.message})`);
             if (retries === 0) throw error;
-            await new Promise(res => setTimeout(res, 10000)); // Wait 10s between retries for Render networking
+            await new Promise(res => setTimeout(res, 8000));
         }
     }
 };
