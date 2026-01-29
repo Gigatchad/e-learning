@@ -4,20 +4,41 @@
 
 const { Pool } = require('pg');
 
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL || `postgresql://${process.env.DB_USER || 'postgres'}:${process.env.DB_PASSWORD || 'postgres'}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || 5432}/${process.env.DB_NAME || 'elearning_db'}`,
+// Log database connection attempt (remove secrets from logs)
+const dbConfig = {
+    connectionString: process.env.DATABASE_URL,
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT,
+    database: process.env.DB_NAME,
+    user: process.env.DB_USER,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+};
+
+console.log('🔌 Connecting to database with config keys:', Object.keys(dbConfig).filter(k => !!dbConfig[k]));
+
+const pool = new Pool(dbConfig.connectionString ? {
+    connectionString: dbConfig.connectionString,
+    ssl: dbConfig.ssl
+} : {
+    host: dbConfig.host || 'localhost',
+    port: dbConfig.port || 5432,
+    user: dbConfig.user || 'postgres',
+    password: process.env.DB_PASSWORD || 'postgres',
+    database: dbConfig.database || 'elearning_db',
+    ssl: dbConfig.ssl
 });
 
 /**
  * MySQL to Postgres Query Converter
  */
 const formatQuery = (sql) => {
+    if (typeof sql !== 'string') return sql;
+
     let pIndex = 1;
     let formattedSql = sql;
 
     // Replace MySQL style '?' with Postgres style '$n'
-    // Be careful not to replace '?' inside strings
+    // This is a simple replacement, handle with care for complex strings
     let parts = formattedSql.split('?');
     if (parts.length > 1) {
         formattedSql = parts[0];
@@ -26,54 +47,66 @@ const formatQuery = (sql) => {
         }
     }
 
-    // Replace MySQL specific functions
+    // Replace common MySQL specific functions/syntax
     formattedSql = formattedSql.replace(/NOW\(\)/gi, 'CURRENT_TIMESTAMP');
 
     // Handle INSERT queries to return ID for insertId compatibility
-    if (formattedSql.trim().toUpperCase().startsWith('INSERT') && !formattedSql.toUpperCase().includes('RETURNING')) {
-        formattedSql += ' RETURNING id';
+    const trimmedSql = formattedSql.trim().toUpperCase();
+    if (trimmedSql.startsWith('INSERT') && !trimmedSql.includes('RETURNING')) {
+        // Remove trailing semicolon if present to append RETURNING
+        formattedSql = formattedSql.trim().replace(/;$/, '') + ' RETURNING id';
     }
 
     return formattedSql;
 };
 
 /**
- * MySQL Compatibility: shim for pool.execute
+ * MySQL Compatibility: shim for pool.execute and pool.query
  */
-pool.execute = async (sql, params = []) => {
+const executeShim = async (executor, sql, params = []) => {
     const formattedSql = formatQuery(sql);
-    const res = await pool.query(formattedSql, params);
+    try {
+        const res = await executor.query(formattedSql, params);
 
-    const rows = res.rows.map(row => {
-        const newRow = { ...row };
-        for (const key in newRow) {
-            if ((key === 'total' || key.includes('count')) && typeof newRow[key] === 'string') {
-                newRow[key] = parseInt(newRow[key], 10);
+        const rows = res.rows.map(row => {
+            const newRow = { ...row };
+            for (const key in newRow) {
+                // MySQL returns numbers for decimals/counts, PG returns strings for BIGINT/DECIMAL
+                if (typeof newRow[key] === 'string' && /^\d+$/.test(newRow[key]) &&
+                    (key === 'total' || key.includes('count') || key.includes('id'))) {
+                    const num = parseInt(newRow[key], 10);
+                    if (!isNaN(num)) newRow[key] = num;
+                }
+                if (typeof newRow[key] === 'string' && /^\d+\.\d+$/.test(newRow[key]) &&
+                    (key.includes('price') || key.includes('rating') || key.includes('progress'))) {
+                    const num = parseFloat(newRow[key]);
+                    if (!isNaN(num)) newRow[key] = num;
+                }
             }
-        }
-        return newRow;
-    });
+            return newRow;
+        });
 
-    // Shimano Result object for INSERT/UPDATE metadata
-    const resultMetadata = {
-        insertId: rows.length > 0 ? rows[0].id : null,
-        affectedRows: res.rowCount,
-        changedRows: res.rowCount
-    };
+        const resultMetadata = {
+            insertId: rows.length > 0 ? rows[0].id : null,
+            affectedRows: res.rowCount,
+            changedRows: res.rowCount
+        };
 
-    // If it was a SELECT, return rows as first element
-    // If it was INSERT/UPDATE/DELETE, return the metadata object as first element
-    // But many controllers expect [rows] even for SELECT.
-    // In mysql2, for SELECT, result[0] is rows. For INSERT, result[0] is the metadata.
-    const isSelect = formattedSql.trim().toUpperCase().startsWith('SELECT');
-
-    return [isSelect ? rows : resultMetadata, res.fields];
+        const isSelect = formattedSql.trim().toUpperCase().startsWith('SELECT');
+        return [isSelect ? rows : resultMetadata, res.fields];
+    } catch (error) {
+        console.error('❌ SQL Error:', error.message);
+        console.error('Offending SQL:', formattedSql);
+        throw error;
+    }
 };
+
+pool.execute = (sql, params) => executeShim(pool, sql, params);
 
 const testConnection = async () => {
     try {
         const client = await pool.connect();
-        console.log('📦 PostgreSQL Connected');
+        console.log('✅ PostgreSQL Connected Successfully');
         client.release();
         return true;
     } catch (error) {
@@ -89,7 +122,7 @@ const query = async (sql, params = []) => {
 
 const getConnection = async () => {
     const client = await pool.connect();
-    client.execute = pool.execute.bind(client); // Share the same shim logic
+    client.execute = (sql, params) => executeShim(client, sql, params);
     return client;
 };
 
@@ -229,25 +262,26 @@ const initializeTables = async () => {
         `CREATE INDEX IF NOT EXISTS idx_enrollments_user ON enrollments(user_id)`
     ];
 
-    const triggerApplier = `
-        DO $$ 
-        BEGIN
-            IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_users_modtime') THEN
-                CREATE TRIGGER update_users_modtime BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_modified_column();
-                CREATE TRIGGER update_categories_modtime BEFORE UPDATE ON categories FOR EACH ROW EXECUTE FUNCTION update_modified_column();
-                CREATE TRIGGER update_courses_modtime BEFORE UPDATE ON courses FOR EACH ROW EXECUTE FUNCTION update_modified_column();
-                CREATE TRIGGER update_lessons_modtime BEFORE UPDATE ON lessons FOR EACH ROW EXECUTE FUNCTION update_modified_column();
-                CREATE TRIGGER update_lesson_progress_modtime BEFORE UPDATE ON lesson_progress FOR EACH ROW EXECUTE FUNCTION update_modified_column();
-                CREATE TRIGGER update_reviews_modtime BEFORE UPDATE ON reviews FOR EACH ROW EXECUTE FUNCTION update_modified_column();
-            END IF;
-        END $$;
-    `;
-
     try {
         await pool.query(triggerFunction);
         for (const sql of tables) await pool.query(sql);
         for (const sql of indexes) await pool.query(sql);
-        await pool.query(triggerApplier);
+
+        // Trigger applier using DO block
+        await pool.query(`
+            DO $$ 
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_users_modtime') THEN
+                    CREATE TRIGGER update_users_modtime BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_modified_column();
+                    CREATE TRIGGER update_categories_modtime BEFORE UPDATE ON categories FOR EACH ROW EXECUTE FUNCTION update_modified_column();
+                    CREATE TRIGGER update_courses_modtime BEFORE UPDATE ON courses FOR EACH ROW EXECUTE FUNCTION update_modified_column();
+                    CREATE TRIGGER update_lessons_modtime BEFORE UPDATE ON lessons FOR EACH ROW EXECUTE FUNCTION update_modified_column();
+                    CREATE TRIGGER update_lesson_progress_modtime BEFORE UPDATE ON lesson_progress FOR EACH ROW EXECUTE FUNCTION update_modified_column();
+                    CREATE TRIGGER update_reviews_modtime BEFORE UPDATE ON reviews FOR EACH ROW EXECUTE FUNCTION update_modified_column();
+                END IF;
+            END $$;
+        `);
+
         console.log('✅ Postgres Tables & Triggers Initialized');
         return true;
     } catch (error) {
