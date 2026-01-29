@@ -4,29 +4,15 @@
 
 const { Pool } = require('pg');
 
-// Log database connection attempt (remove secrets from logs)
 const dbConfig = {
     connectionString: process.env.DATABASE_URL,
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
-    database: process.env.DB_NAME,
-    user: process.env.DB_USER,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
 };
 
-console.log('🔌 Connecting to database with config keys:', Object.keys(dbConfig).filter(k => !!dbConfig[k]));
-
-const pool = new Pool(dbConfig.connectionString ? {
-    connectionString: dbConfig.connectionString,
-    ssl: dbConfig.ssl
-} : {
-    host: dbConfig.host || 'localhost',
-    port: dbConfig.port || 5432,
-    user: dbConfig.user || 'postgres',
-    password: process.env.DB_PASSWORD || 'postgres',
-    database: dbConfig.database || 'elearning_db',
-    ssl: dbConfig.ssl
-});
+const pool = new Pool(dbConfig);
 
 /**
  * MySQL to Postgres Query Converter
@@ -38,7 +24,6 @@ const formatQuery = (sql) => {
     let formattedSql = sql;
 
     // Replace MySQL style '?' with Postgres style '$n'
-    // This is a simple replacement, handle with care for complex strings
     let parts = formattedSql.split('?');
     if (parts.length > 1) {
         formattedSql = parts[0];
@@ -53,7 +38,6 @@ const formatQuery = (sql) => {
     // Handle INSERT queries to return ID for insertId compatibility
     const trimmedSql = formattedSql.trim().toUpperCase();
     if (trimmedSql.startsWith('INSERT') && !trimmedSql.includes('RETURNING')) {
-        // Remove trailing semicolon if present to append RETURNING
         formattedSql = formattedSql.trim().replace(/;$/, '') + ' RETURNING id';
     }
 
@@ -61,7 +45,7 @@ const formatQuery = (sql) => {
 };
 
 /**
- * MySQL Compatibility: shim for pool.execute and pool.query
+ * MySQL Compatibility: shim for pg result
  */
 const executeShim = async (executor, sql, params = []) => {
     const formattedSql = formatQuery(sql);
@@ -71,16 +55,14 @@ const executeShim = async (executor, sql, params = []) => {
         const rows = res.rows.map(row => {
             const newRow = { ...row };
             for (const key in newRow) {
-                // MySQL returns numbers for decimals/counts, PG returns strings for BIGINT/DECIMAL
+                // Convert stringified numbers back to numbers (common in PG for BIGINT/DECIMAL)
                 if (typeof newRow[key] === 'string' && /^\d+$/.test(newRow[key]) &&
-                    (key === 'total' || key.includes('count') || key.includes('id'))) {
-                    const num = parseInt(newRow[key], 10);
-                    if (!isNaN(num)) newRow[key] = num;
+                    (key === 'total' || key.includes('count') || key === 'id' || key.includes('_id'))) {
+                    newRow[key] = parseInt(newRow[key], 10);
                 }
                 if (typeof newRow[key] === 'string' && /^\d+\.\d+$/.test(newRow[key]) &&
                     (key.includes('price') || key.includes('rating') || key.includes('progress'))) {
-                    const num = parseFloat(newRow[key]);
-                    if (!isNaN(num)) newRow[key] = num;
+                    newRow[key] = parseFloat(newRow[key]);
                 }
             }
             return newRow;
@@ -96,22 +78,26 @@ const executeShim = async (executor, sql, params = []) => {
         return [isSelect ? rows : resultMetadata, res.fields];
     } catch (error) {
         console.error('❌ SQL Error:', error.message);
-        console.error('Offending SQL:', formattedSql);
+        console.error('SQL:', formattedSql);
         throw error;
     }
 };
 
 pool.execute = (sql, params) => executeShim(pool, sql, params);
 
-const testConnection = async () => {
-    try {
-        const client = await pool.connect();
-        console.log('✅ PostgreSQL Connected Successfully');
-        client.release();
-        return true;
-    } catch (error) {
-        console.error('❌ Database Connection Failed:', error.message);
-        throw error;
+const testConnection = async (retries = 5) => {
+    while (retries > 0) {
+        try {
+            const client = await pool.connect();
+            console.log('✅ PostgreSQL Connected Successfully');
+            client.release();
+            return true;
+        } catch (error) {
+            retries -= 1;
+            console.log(`⏳ Database connection failed. Retrying... (${retries} retries left)`);
+            if (retries === 0) throw error;
+            await new Promise(res => setTimeout(res, 3000)); // Wait 3s
+        }
     }
 };
 
@@ -137,7 +123,8 @@ const initializeTables = async () => {
         $$ language 'plpgsql';
     `;
 
-    const tables = [
+    // Ensure users table exists first due to foreign keys
+    const tableQueries = [
         `CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
             uuid VARCHAR(36) UNIQUE NOT NULL,
@@ -253,21 +240,10 @@ const initializeTables = async () => {
         )`
     ];
 
-    const indexes = [
-        `CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`,
-        `CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)`,
-        `CREATE INDEX IF NOT EXISTS idx_courses_slug ON courses(slug)`,
-        `CREATE INDEX IF NOT EXISTS idx_courses_instructor ON courses(instructor_id)`,
-        `CREATE INDEX IF NOT EXISTS idx_lessons_course ON lessons(course_id)`,
-        `CREATE INDEX IF NOT EXISTS idx_enrollments_user ON enrollments(user_id)`
-    ];
-
     try {
         await pool.query(triggerFunction);
-        for (const sql of tables) await pool.query(sql);
-        for (const sql of indexes) await pool.query(sql);
+        for (const sql of tableQueries) await pool.query(sql);
 
-        // Trigger applier using DO block
         await pool.query(`
             DO $$ 
             BEGIN

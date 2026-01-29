@@ -28,6 +28,11 @@ const uploadRoutes = require('./routes/upload.routes');
 
 const app = express();
 
+// Trust proxy for Render/Cloud environments (needed for rate limiting)
+if (process.env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+}
+
 // ==================== SECURITY MIDDLEWARE ====================
 
 // Helmet - Set security HTTP headers
