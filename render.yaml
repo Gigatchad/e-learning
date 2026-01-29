@@ -13,14 +13,14 @@ services:
       - key: JWT_REFRESH_SECRET
         generateValue: true
       - key: CORS_ORIGIN
-        value: "*" # Set this to your frontend URL later for better security
-      - key: DB_HOST
-        sync: false
-      - key: DB_PORT
-        value: 3306
-      - key: DB_USER
-        sync: false
-      - key: DB_PASSWORD
-        sync: false
-      - key: DB_NAME
-        value: elearning_db
+        value: "*"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: elearning_db
+          property: connectionString
+
+databases:
+  - name: elearning_db
+    databaseName: elearning_db
+    user: elearning_user
+    plan: free # Use Render's free tier for PostgreSQL
