@@ -41,7 +41,13 @@ Vous pouvez utiliser un fournisseur externe qui offre une base MySQL gratuite ou
     *   `DB_HOST`
     *   `DB_USER`
     *   `DB_PASSWORD`
-6. Cliquez sur **Apply**. Render va construire l'image Docker et déployer l'application.
+6. Cliquez sur **Apply**. 
+
+**Note :** Render va automatiquement :
+1. Construire le **Frontend** (React/Vite).
+2. Installer les dépendances du **Backend**.
+3. Créer une image Docker unique contenant les deux.
+4. Déployer l'ensemble.
 
 ### Méthode Manuelle
 
@@ -50,17 +56,15 @@ Vous pouvez utiliser un fournisseur externe qui offre une base MySQL gratuite ou
 3. Choisissez **Docker** comme "Runtime".
 4. Dans la section **Environment Variables**, ajoutez :
     *   `NODE_ENV` = `production`
-    *   `DB_HOST` = (Votre hôte MySQL)
-    *   `DB_USER` = (Votre utilisateur MySQL)
-    *   `DB_PASSWORD` = (Votre mot de passe MySQL)
-    *   `DB_NAME` = `elearning_db`
-    *   `JWT_SECRET` = (Générez une chaîne aléatoire)
-    *   `JWT_REFRESH_SECRET` = (Générez une chaîne aléatoire)
+    *   `CORS_ORIGIN` = (URL de votre futur service Render, ou `*`)
+    *   `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
+    *   `JWT_SECRET`, `JWT_REFRESH_SECRET`
 5. Lancez le déploiement.
 
 ## Vérification
 
 Une fois déployé :
 1. Render vous donnera une URL (ex: `https://mon-projet.onrender.com`).
-2. Ouvrez cette URL. Vous devriez voir votre application React fonctionner.
-3. Les appels API (`/api/...`) seront traités par le backend Node.js sur le même domaine.
+2. Ouvrez cette URL. Votre application **Frontend (React)** s'affichera directement.
+3. Le **Backend (API)** est accessible sur la même URL via `/api/...`.
+4. La documentation API reste disponible sur `/api-docs`.

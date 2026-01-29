@@ -124,6 +124,22 @@ app.use((req, res) => {
 // ==================== ERROR HANDLER ====================
 app.use(errorHandler);
 
+// ==================== STATIC FILES (FRONTEND) ====================
+// Serve frontend static files in production
+if (process.env.NODE_ENV === 'production') {
+    const frontendPath = path.join(__dirname, '../frontend/dist');
+    app.use(express.static(frontendPath));
+
+    // Handle SPA routing - return index.html for all non-API routes
+    app.get('*', (req, res, next) => {
+        if (!req.path.startsWith('/api')) {
+            res.sendFile(path.join(frontendPath, 'index.html'));
+        } else {
+            next();
+        }
+    });
+}
+
 // ==================== DATABASE CONNECTION & SERVER START ====================
 const PORT = process.env.PORT || 5000;
 
