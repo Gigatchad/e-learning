@@ -4,15 +4,21 @@
 
 const { Pool } = require('pg');
 
-// In production on Render, we want to rely ONLY on the environment variables provided by the platform
-const connectionString = process.env.DATABASE_URL;
+// Force usage of environment variables from Render, ignoring local .env if in production
+let connectionString = process.env.DATABASE_URL;
 
 if (process.env.NODE_ENV === 'production' && connectionString) {
     try {
+        // Fix for Render internal DNS issues: append region suffix if missing
+        if (connectionString.includes('dpg-') && !connectionString.includes('.render.com')) {
+            const region = process.env.RENDER_REGION || 'frankfurt';
+            connectionString = connectionString.replace(/(@dpg-[a-z0-8]+)/i, `$1.${region}-postgres.render.com`);
+        }
+
         const url = new URL(connectionString);
-        console.log(`📡 Platform Provided Database Host: ${url.hostname}`);
+        console.log(`📡 Database Target: ${url.hostname}`);
     } catch (e) {
-        console.log('📡 Using DATABASE_URL from environment');
+        // Fallback to original if URL parsing fails
     }
 }
 
@@ -20,8 +26,7 @@ const dbConfig = {
     connectionString: connectionString,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     max: 10,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
+    connectionTimeoutMillis: 5000,
 };
 
 const pool = new Pool(dbConfig);
@@ -89,7 +94,7 @@ const executeShim = async (executor, sql, params = []) => {
 
 pool.execute = (sql, params) => executeShim(pool, sql, params);
 
-const testConnection = async (retries = 15) => {
+const testConnection = async (retries = 20) => {
     const totalRetries = retries;
     while (retries > 0) {
         try {
@@ -99,9 +104,9 @@ const testConnection = async (retries = 15) => {
             return true;
         } catch (error) {
             retries -= 1;
-            console.log(`⏳ [Attempt ${totalRetries - retries}/${totalRetries}] Connecting to database... (${error.message})`);
+            console.log(`⏳ Attempt [${totalRetries - retries}/${totalRetries}]: ${error.message}`);
             if (retries === 0) throw error;
-            await new Promise(res => setTimeout(res, 8000));
+            await new Promise(res => setTimeout(res, 5000));
         }
     }
 };
