@@ -4,26 +4,32 @@
 
 const { Pool } = require('pg');
 
-// Force usage of environment variables from Render, ignoring local .env if in production
-let connectionString = process.env.DATABASE_URL;
+/**
+ * Handle Render internal DNS issues by appending the correct regional suffix
+ */
+const getConnectionString = () => {
+    let urlStr = process.env.DATABASE_URL;
+    if (!urlStr) return null;
 
-if (process.env.NODE_ENV === 'production' && connectionString) {
-    try {
-        // Fix for Render internal DNS issues: append region suffix if missing
-        if (connectionString.includes('dpg-') && !connectionString.includes('.render.com')) {
-            const region = process.env.RENDER_REGION || 'frankfurt';
-            connectionString = connectionString.replace(/(@dpg-[a-z0-8]+)/i, `$1.${region}-postgres.render.com`);
+    if (process.env.NODE_ENV === 'production') {
+        try {
+            const url = new URL(urlStr);
+            // If hostname is a short Render internal name (e.g. dpg-xxx-a)
+            if (url.hostname.startsWith('dpg-') && !url.hostname.includes('.render.com')) {
+                const region = process.env.RENDER_REGION || 'frankfurt';
+                url.hostname = `${url.hostname}.${region}-postgres.render.com`;
+                urlStr = url.toString();
+            }
+            console.log(`📡 Database Target Host: ${url.hostname}`);
+        } catch (e) {
+            console.error('⚠️ Could not parse DATABASE_URL for DNS fix');
         }
-
-        const url = new URL(connectionString);
-        console.log(`📡 Database Target: ${url.hostname}`);
-    } catch (e) {
-        // Fallback to original if URL parsing fails
     }
-}
+    return urlStr;
+};
 
 const dbConfig = {
-    connectionString: connectionString,
+    connectionString: getConnectionString(),
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     max: 10,
     connectionTimeoutMillis: 5000,
