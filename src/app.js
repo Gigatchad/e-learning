@@ -13,6 +13,7 @@ const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 
 const db = require('./config/database');
+const path = require('path');
 const errorHandler = require('./middleware/errorHandler');
 const swaggerSetup = require('./config/swagger');
 
@@ -107,13 +108,26 @@ app.use('/api/enrollments', enrollmentRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/upload', uploadRoutes);
 
-// ==================== 404 HANDLER ====================
-app.use((req, res) => {
+// ==================== 404 & FRONTEND HANDLER ====================
+
+// API 404 Handler - Return JSON for unknown API routes
+app.use('/api/*', (req, res) => {
     res.status(404).json({
         success: false,
-        message: `Route ${req.originalUrl} not found`,
+        message: `API route ${req.originalUrl} not found`,
     });
 });
+
+// Serve Static Frontend Files (Production)
+if (process.env.NODE_ENV === 'production') {
+    // In production, the frontend is built to the 'public' folder
+    app.use(express.static(path.join(__dirname, '../public')));
+
+    // Client-side Routing - Return index.html for all non-API routes
+    app.get('*', (req, res) => {
+        res.sendFile(path.join(__dirname, '../public', 'index.html'));
+    });
+}
 
 // ==================== ERROR HANDLER ====================
 app.use(errorHandler);

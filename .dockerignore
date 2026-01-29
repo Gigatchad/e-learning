@@ -1,0 +1,13 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+.gitlab-ci.yml
+.env
+coverage
+tests
+frontend/node_modules
+frontend/.env
+frontend/dist
+frontend/coverage
+uploads
