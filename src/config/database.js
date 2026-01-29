@@ -23,7 +23,6 @@ const formatQuery = (sql) => {
     let pIndex = 1;
     let formattedSql = sql;
 
-    // Replace MySQL style '?' with Postgres style '$n'
     let parts = formattedSql.split('?');
     if (parts.length > 1) {
         formattedSql = parts[0];
@@ -32,10 +31,8 @@ const formatQuery = (sql) => {
         }
     }
 
-    // Replace common MySQL specific functions/syntax
     formattedSql = formattedSql.replace(/NOW\(\)/gi, 'CURRENT_TIMESTAMP');
 
-    // Handle INSERT queries to return ID for insertId compatibility
     const trimmedSql = formattedSql.trim().toUpperCase();
     if (trimmedSql.startsWith('INSERT') && !trimmedSql.includes('RETURNING')) {
         formattedSql = formattedSql.trim().replace(/;$/, '') + ' RETURNING id';
@@ -44,9 +41,6 @@ const formatQuery = (sql) => {
     return formattedSql;
 };
 
-/**
- * MySQL Compatibility: shim for pg result
- */
 const executeShim = async (executor, sql, params = []) => {
     const formattedSql = formatQuery(sql);
     try {
@@ -55,7 +49,6 @@ const executeShim = async (executor, sql, params = []) => {
         const rows = res.rows.map(row => {
             const newRow = { ...row };
             for (const key in newRow) {
-                // Convert stringified numbers back to numbers (common in PG for BIGINT/DECIMAL)
                 if (typeof newRow[key] === 'string' && /^\d+$/.test(newRow[key]) &&
                     (key === 'total' || key.includes('count') || key === 'id' || key.includes('_id'))) {
                     newRow[key] = parseInt(newRow[key], 10);
@@ -78,14 +71,14 @@ const executeShim = async (executor, sql, params = []) => {
         return [isSelect ? rows : resultMetadata, res.fields];
     } catch (error) {
         console.error('❌ SQL Error:', error.message);
-        console.error('SQL:', formattedSql);
         throw error;
     }
 };
 
 pool.execute = (sql, params) => executeShim(pool, sql, params);
 
-const testConnection = async (retries = 5) => {
+const testConnection = async (retries = 10) => {
+    const totalRetries = retries;
     while (retries > 0) {
         try {
             const client = await pool.connect();
@@ -94,9 +87,9 @@ const testConnection = async (retries = 5) => {
             return true;
         } catch (error) {
             retries -= 1;
-            console.log(`⏳ Database connection failed. Retrying... (${retries} retries left)`);
+            console.log(`⏳ [Attempt ${totalRetries - retries}/${totalRetries}] Database connection waiting... (${error.message})`);
             if (retries === 0) throw error;
-            await new Promise(res => setTimeout(res, 3000)); // Wait 3s
+            await new Promise(res => setTimeout(res, 5000)); // Wait 5s
         }
     }
 };
@@ -123,7 +116,6 @@ const initializeTables = async () => {
         $$ language 'plpgsql';
     `;
 
-    // Ensure users table exists first due to foreign keys
     const tableQueries = [
         `CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,

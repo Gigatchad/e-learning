@@ -25,4 +25,5 @@ databases:
   - name: elearning_db
     databaseName: elearning_db
     user: elearning_user
-    plan: free # Use Render's free tier for PostgreSQL
+    plan: free
+    region: frankfurt # Ensure DB is in the same region as the web service
