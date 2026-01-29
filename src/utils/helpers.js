@@ -1,16 +1,11 @@
-/**
- * Helper Utilities
- * Common helper functions used throughout the application
- */
-
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 
 /**
  * Generate a unique UUID
  * @returns {string} UUID v4
  */
 const generateUUID = () => {
-    return uuidv4();
+    return crypto.randomUUID();
 };
 
 /**
