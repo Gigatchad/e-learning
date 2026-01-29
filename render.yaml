@@ -18,12 +18,12 @@ services:
         value: "*"
       - key: DATABASE_URL
         fromDatabase:
-          name: elearning_db
+          name: elearning-db-v2 # Name changed to force a fresh creation
           property: connectionString
 
 databases:
-  - name: elearning_db
+  - name: elearning-db-v2
     databaseName: elearning_db
     user: elearning_user
     plan: free
-    region: frankfurt # Ensure DB is in the same region as the web service
+    region: frankfurt

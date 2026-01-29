@@ -77,7 +77,7 @@ const executeShim = async (executor, sql, params = []) => {
 
 pool.execute = (sql, params) => executeShim(pool, sql, params);
 
-const testConnection = async (retries = 10) => {
+const testConnection = async (retries = 12) => {
     const totalRetries = retries;
     while (retries > 0) {
         try {
@@ -87,9 +87,9 @@ const testConnection = async (retries = 10) => {
             return true;
         } catch (error) {
             retries -= 1;
-            console.log(`⏳ [Attempt ${totalRetries - retries}/${totalRetries}] Database connection waiting... (${error.message})`);
+            console.log(`⏳ [Attempt ${totalRetries - retries}/${totalRetries}] Waiting for database network... (${error.message})`);
             if (retries === 0) throw error;
-            await new Promise(res => setTimeout(res, 5000)); // Wait 5s
+            await new Promise(res => setTimeout(res, 10000)); // Wait 10s between retries for Render networking
         }
     }
 };
