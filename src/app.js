@@ -139,14 +139,14 @@ app.use(errorHandler);
 // ==================== DATABASE CONNECTION & SERVER START ====================
 const PORT = process.env.PORT || 5000;
 
-// Start server immediately so Render detects the open port
-const server = app.listen(PORT, () => {
-    console.log(`\n🚀 Server bound to port ${PORT} - initializing database...`);
-    console.log(`❤️  Health Check: http://localhost:${PORT}/health\n`);
-});
-
 const startServer = async () => {
     try {
+        // Start server
+        const server = app.listen(PORT, () => {
+            console.log(`\n🚀 Server bound to port ${PORT} - initializing database...`);
+            console.log(`❤️  Health Check: http://localhost:${PORT}/health\n`);
+        });
+
         // Test database connection with retries
         await db.testConnection();
         console.log('✅ Database connected successfully');
@@ -159,7 +159,6 @@ const startServer = async () => {
         console.log(`📚 API Documentation: http://localhost:${PORT}/api-docs`);
     } catch (error) {
         console.error('❌ Failed to initialize database:', error.message);
-        // We don't exit because we want the health check to remain active
     }
 };
 

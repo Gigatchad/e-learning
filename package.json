@@ -7,7 +7,7 @@
     "start": "node src/app.js",
     "dev": "node --watch src/app.js",
     "seed": "node src/seeds/seed.js",
-    "test": "jest"
+    "test": "jest --forceExit"
   },
   "keywords": [
     "elearning",
