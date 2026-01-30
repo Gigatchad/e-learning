@@ -41,7 +41,6 @@ load_test:
   stage: test
   script:
     - echo "Scaling down load test for CI environment..."
-    - # We run a quick smoke test to ensure config is valid without overloading CI
     - npx artillery run --quick tests/load-test.yml
   allow_failure: true
 
