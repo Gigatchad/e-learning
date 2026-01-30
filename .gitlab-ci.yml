@@ -40,8 +40,11 @@ integration_tests:
 load_test:
   stage: test
   script:
-    - echo "Scaling down load test for CI environment..."
-    - npx artillery run --quick tests/load-test.yml
+    - echo "Running backend in background..."
+    - npm start & 
+    - sleep 10 # Wait for server to start
+    - echo "Running smoke load test..."
+    - npx artillery run tests/load-test.yml
   allow_failure: true
 
 # Frontend Build Test (Ensures frontend compiles)
