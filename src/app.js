@@ -47,14 +47,21 @@ const corsOptions = {
     origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Load-Test-Secret'],
 };
 app.use(cors(corsOptions));
 
+// Bypass logic for Load Testing
+const skipLoadTest = (req) => {
+    const secret = req.headers['x-load-test-secret'];
+    return secret && secret === process.env.LOAD_TEST_SECRET;
+};
+
 // Rate Limiting - Prevent brute force attacks
 const limiter = rateLimit({
-    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-    max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
+    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
+    max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
+    skip: skipLoadTest,
     message: {
         success: false,
         message: 'Too many requests from this IP, please try again later.',
@@ -66,8 +73,9 @@ app.use('/api', limiter);
 
 // Stricter rate limit for auth endpoints
 const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10, // limit each IP to 10 login requests per windowMs
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    skip: skipLoadTest,
     message: {
         success: false,
         message: 'Too many authentication attempts, please try again later.',

@@ -1,0 +1,41 @@
+config:
+  # Remplace l'URL par ton URL Render réelle, ex: https://e-learning-api.onrender.com
+  target: "https://votre-app-render.onrender.com"
+  phases:
+    - duration: 20
+      arrivalRate: 3
+      name: "Ramp up - Production Test"
+    - duration: 40
+      arrivalRate: 10
+      name: "Sustained load - Production Test"
+  defaults:
+    headers:
+      Content-Type: "application/json"
+      # Cette header permet de bypasser le rate limiting sur Render
+      # Assure-toi que LOAD_TEST_SECRET est configuré dans tes variables d'environnement Render
+      X-Load-Test-Secret: "VOTRE_SECRET_DE_TEST"
+
+scenarios:
+  - name: "Consultation catalogue (Production)"
+    flow:
+      - get:
+          url: "/api/categories"
+      - get:
+          url: "/api/courses?limit=10"
+      - think: 2
+
+  - name: "Flux d'authentification (Production)"
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "student@test.com"
+            password: "password123"
+          capture:
+            - json: "$.data.accessToken"
+              as: "token"
+      - get:
+          url: "/api/wishlist"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Load-Test-Secret: "VOTRE_SECRET_DE_TEST"

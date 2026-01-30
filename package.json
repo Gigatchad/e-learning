@@ -8,7 +8,8 @@
     "dev": "node --watch src/app.js",
     "seed": "node src/seeds/seed.js",
     "test": "jest --forceExit",
-    "load-test": "artillery run tests/load-test.yml"
+    "load-test": "artillery run tests/load-test.yml",
+    "load-test-render": "artillery run tests/load-test-render.yml"
   },
   "keywords": [
     "elearning",
