@@ -8,8 +8,8 @@ jest.mock('../src/config/database', () => ({
     pool: {
         execute: jest.fn(),
     },
-    testConnection: jest.fn().mockResolvedValue(true),
-    initializeTables: jest.fn().mockResolvedValue(true),
+    testConnection: jest.fn(),
+    initializeTables: jest.fn(),
 }));
 
 // Mock Bcrypt
@@ -18,6 +18,13 @@ jest.mock('bcryptjs', () => ({
 }));
 
 describe('Auth Functional Tests', () => {
+    beforeEach(() => {
+        jest.resetAllMocks();
+        db.pool = { execute: jest.fn() };
+        db.testConnection = jest.fn().mockResolvedValue(true);
+        db.initializeTables = jest.fn().mockResolvedValue(true);
+    });
+
     it('should login successfully', async () => {
         const mockUser = { id: 1, email: 'test@example.com', password: 'hashed', is_active: 1 };
         db.pool.execute.mockResolvedValueOnce([[mockUser]]);

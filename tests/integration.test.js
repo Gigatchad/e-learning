@@ -37,7 +37,13 @@ describe('Complete Application Integration Test', () => {
         instructorToken = jwt.sign({ id: mockInstructor.id }, process.env.JWT_SECRET);
     });
 
-    beforeEach(() => { jest.clearAllMocks(); });
+    beforeEach(() => {
+        jest.resetAllMocks();
+        // Re-mock database functions after reset
+        db.testConnection = jest.fn().mockResolvedValue(true);
+        db.initializeTables = jest.fn().mockResolvedValue(true);
+        db.pool = { execute: jest.fn() };
+    });
 
     /**
      * 1. AUTHENTICATION

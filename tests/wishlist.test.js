@@ -22,7 +22,8 @@ describe('Wishlist Controller - Unit Tests (TDD)', () => {
     let req, res, next;
 
     beforeEach(() => {
-        jest.clearAllMocks();
+        jest.resetAllMocks();
+        db.pool = { execute: jest.fn() };
         req = {
             user: { id: 1 },
             body: { course_id: 101 },

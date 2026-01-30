@@ -39,7 +39,10 @@ describe('Auth Controller - Unit Tests', () => {
     let req, res, next;
 
     beforeEach(() => {
-        jest.clearAllMocks();
+        jest.resetAllMocks();
+        db.pool = { execute: jest.fn() };
+        db.testConnection = jest.fn().mockResolvedValue(true);
+        db.initializeTables = jest.fn().mockResolvedValue(true);
         req = {
             body: { email: 'test@example.com', password: 'password123', first_name: 'John', last_name: 'Doe' },
         };
