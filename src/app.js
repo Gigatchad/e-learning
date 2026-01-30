@@ -25,6 +25,7 @@ const lessonRoutes = require('./routes/lesson.routes');
 const enrollmentRoutes = require('./routes/enrollment.routes');
 const categoryRoutes = require('./routes/category.routes');
 const uploadRoutes = require('./routes/upload.routes');
+const wishlistRoutes = require('./routes/wishlist.routes');
 
 const app = express();
 
@@ -112,6 +113,7 @@ app.use('/api/lessons', lessonRoutes);
 app.use('/api/enrollments', enrollmentRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/wishlist', wishlistRoutes);
 
 // ==================== STATIC FILES (FRONTEND) ====================
 // Serve frontend static files in production

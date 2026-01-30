@@ -252,6 +252,14 @@ const initializeTables = async () => {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE (user_id, course_id)
+        )`,
+        `CREATE TABLE IF NOT EXISTS wishlists (
+            id SERIAL PRIMARY KEY,
+            user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            course_id INT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (user_id, course_id)
         )`
     ];
 
@@ -262,16 +270,17 @@ const initializeTables = async () => {
         await pool.query(`
             DO $$ 
             BEGIN
-                IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_users_modtime') THEN
+                IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgname = 'update_users_modtime') THEN
                     CREATE TRIGGER update_users_modtime BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_modified_column();
                     CREATE TRIGGER update_categories_modtime BEFORE UPDATE ON categories FOR EACH ROW EXECUTE FUNCTION update_modified_column();
                     CREATE TRIGGER update_courses_modtime BEFORE UPDATE ON courses FOR EACH ROW EXECUTE FUNCTION update_modified_column();
                     CREATE TRIGGER update_lessons_modtime BEFORE UPDATE ON lessons FOR EACH ROW EXECUTE FUNCTION update_modified_column();
                     CREATE TRIGGER update_lesson_progress_modtime BEFORE UPDATE ON lesson_progress FOR EACH ROW EXECUTE FUNCTION update_modified_column();
                     CREATE TRIGGER update_reviews_modtime BEFORE UPDATE ON reviews FOR EACH ROW EXECUTE FUNCTION update_modified_column();
+                    CREATE TRIGGER update_wishlists_modtime BEFORE UPDATE ON wishlists FOR EACH ROW EXECUTE FUNCTION update_modified_column();
                 END IF;
             END $$;
-        `);
+    `);
 
         console.log('✅ Postgres Tables & Triggers Initialized');
         return true;

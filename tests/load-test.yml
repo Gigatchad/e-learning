@@ -1,0 +1,40 @@
+config:
+  target: "http://localhost:5000"
+  phases:
+    - duration: 60
+      arrivalRate: 5
+      rampTo: 20
+      name: "Warm up phase"
+    - duration: 120
+      arrivalRate: 20
+      rampTo: 50
+      name: "Load phase"
+  defaults:
+    headers:
+      Content-Type: "application/json"
+
+scenarios:
+  - name: "Simple browsing"
+    flow:
+      - get:
+          url: "/api/categories"
+      - get:
+          url: "/api/courses?limit=10"
+      - think: 2
+      - get:
+          url: "/api/courses/1" # Change to a valid ID or slug if needed
+
+  - name: "Login flow"
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "student@test.com"
+            password: "password123"
+          capture:
+            - json: "$.data.accessToken"
+              as: "token"
+      - get:
+          url: "/api/wishlist"
+          headers:
+            Authorization: "Bearer {{ token }}"

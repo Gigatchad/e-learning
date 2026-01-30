@@ -39,7 +39,7 @@ const generateSlug = (text, suffix = null) => {
  */
 const generateUniqueSlug = (text) => {
     const baseSlug = generateSlug(text);
-    const shortId = uuidv4().split('-')[0]; // First segment of UUID
+    const shortId = generateUUID().split('-')[0]; // First segment of UUID
     return `${baseSlug}-${shortId}`;
 };
 

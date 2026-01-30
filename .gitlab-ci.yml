@@ -26,6 +26,25 @@ backend_tests:
     JWT_SECRET: "ci_jwt_secret"
     JWT_REFRESH_SECRET: "ci_refresh_secret"
 
+# Integration Tests
+integration_tests:
+  stage: test
+  script:
+    - echo "Running full application integration tests..."
+    - npm test tests/integration.test.js
+  variables:
+    NODE_ENV: "test"
+    JWT_SECRET: "ci_jwt_secret"
+
+# Load Test (Smoke test version)
+load_test:
+  stage: test
+  script:
+    - echo "Scaling down load test for CI environment..."
+    - # We run a quick smoke test to ensure config is valid without overloading CI
+    - npx artillery run --quick tests/load-test.yml
+  allow_failure: true
+
 # Frontend Build Test (Ensures frontend compiles)
 frontend_build:
   stage: build
