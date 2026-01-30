@@ -7,6 +7,8 @@ jest.mock('../src/config/database', () => ({
     pool: {
         execute: jest.fn(),
     },
+    testConnection: jest.fn(),
+    initializeTables: jest.fn(),
 }));
 
 jest.mock('bcryptjs', () => ({
