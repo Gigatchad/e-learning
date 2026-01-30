@@ -40,9 +40,9 @@ describe('Auth Controller - Unit Tests', () => {
 
     beforeEach(() => {
         jest.resetAllMocks();
-        db.pool = { execute: jest.fn() };
-        db.testConnection = jest.fn().mockResolvedValue(true);
-        db.initializeTables = jest.fn().mockResolvedValue(true);
+        db.testConnection.mockResolvedValue(true);
+        db.initializeTables.mockResolvedValue(true);
+        process.env.JWT_SECRET = 'test_secret';
         req = {
             body: { email: 'test@example.com', password: 'password123', first_name: 'John', last_name: 'Doe' },
         };
@@ -61,7 +61,12 @@ describe('Auth Controller - Unit Tests', () => {
         db.pool.execute.mockResolvedValueOnce([{}]); // Token update
         db.pool.execute.mockResolvedValueOnce([[{ id: 1, email: 'test@example.com' }]]); // Get user
 
-        await authController.register(req, res, next);
+        try {
+            await authController.register(req, res, next);
+        } catch (error) {
+            console.error('Registration Error:', error);
+            throw error;
+        }
         expect(res.status).toHaveBeenCalledWith(201);
     });
 });

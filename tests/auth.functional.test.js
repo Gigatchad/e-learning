@@ -20,9 +20,8 @@ jest.mock('bcryptjs', () => ({
 describe('Auth Functional Tests', () => {
     beforeEach(() => {
         jest.resetAllMocks();
-        db.pool = { execute: jest.fn() };
-        db.testConnection = jest.fn().mockResolvedValue(true);
-        db.initializeTables = jest.fn().mockResolvedValue(true);
+        db.testConnection.mockResolvedValue(true);
+        db.initializeTables.mockResolvedValue(true);
     });
 
     it('should login successfully', async () => {

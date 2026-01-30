@@ -39,10 +39,11 @@ describe('Complete Application Integration Test', () => {
 
     beforeEach(() => {
         jest.resetAllMocks();
-        // Re-mock database functions after reset
-        db.testConnection = jest.fn().mockResolvedValue(true);
-        db.initializeTables = jest.fn().mockResolvedValue(true);
-        db.pool = { execute: jest.fn() };
+        // Re-mock database functions after reset to ensure clean state
+        db.testConnection.mockResolvedValue(true);
+        db.initializeTables.mockResolvedValue(true);
+        // Ensure JWT_SECRET is available in every test
+        process.env.JWT_SECRET = 'test_secret_key';
     });
 
     /**
@@ -54,6 +55,10 @@ describe('Complete Application Integration Test', () => {
         db.pool.execute.mockResolvedValueOnce([{ affectedRows: 1 }]);
 
         const res = await request(app).post('/api/auth/login').send({ email: 'student@test.com', password: 'password123' });
+
+        if (res.statusCode !== 200) {
+            console.error('Login Failed Body:', JSON.stringify(res.body, null, 2));
+        }
         expect(res.statusCode).toBe(200);
     });
 
