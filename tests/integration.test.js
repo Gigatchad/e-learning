@@ -33,6 +33,7 @@ describe('Complete Application Integration Test', () => {
 
     beforeAll(() => {
         process.env.JWT_SECRET = 'test_secret_key';
+        process.env.JWT_REFRESH_SECRET = 'test_refresh_secret_key';
         studentToken = jwt.sign({ id: mockStudent.id }, process.env.JWT_SECRET);
         instructorToken = jwt.sign({ id: mockInstructor.id }, process.env.JWT_SECRET);
     });
