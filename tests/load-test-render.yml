@@ -38,4 +38,4 @@ scenarios:
           url: "/api/wishlist"
           headers:
             Authorization: "Bearer {{ token }}"
-            X-Load-Test-Secret: "VOTRE_SECRET_DE_TEST"
+            X-Load-Test-Secret: "MaCleSuperSecrete123!"
